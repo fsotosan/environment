@@ -19,6 +19,7 @@ The estimator:
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import numpy as np
@@ -28,6 +29,8 @@ REFERENCE_PRESSURE_PA = 20e-6
 
 @dataclass(frozen=True)
 class NoiseResult:
+    """One short analysis block (typically about one second)."""
+
     db_a: float
     peak_db: float
     dbfs: float
@@ -36,14 +39,100 @@ class NoiseResult:
     rms_volts: float
     sample_count: int
 
+    @property
+    def duration_seconds(self) -> float:
+        if self.sample_rate_hz <= 0:
+            return 0.0
+        return self.sample_count / self.sample_rate_hz
+
+
+@dataclass(frozen=True)
+class NoiseIntervalStats:
+    """Leq, maximum and statistical levels over one logging interval."""
+
+    leq_db_a: float
+    max_db_a: float
+    l10_db_a: float
+    l50_db_a: float
+    l90_db_a: float
+    peak_db: float
+    dbfs: float
+    sample_rate_hz: int
+    clipping_pct: float
+    sample_count: int
+    block_count: int
+    duration_seconds: float
+
     def as_dict(self) -> dict[str, object]:
         return {
-            "noise_db_a": round(self.db_a, 1),
+            "noise_leq_db_a": round(self.leq_db_a, 1),
+            "noise_max_db_a": round(self.max_db_a, 1),
+            "noise_l10_db_a": round(self.l10_db_a, 1),
+            "noise_l50_db_a": round(self.l50_db_a, 1),
+            "noise_l90_db_a": round(self.l90_db_a, 1),
             "noise_peak_db": round(self.peak_db, 1),
             "noise_dbfs": round(self.dbfs, 1),
             "noise_sample_rate_hz": self.sample_rate_hz,
             "noise_clipping_pct": round(self.clipping_pct, 2),
         }
+
+
+def _weighted_percentile(values: np.ndarray, weights: np.ndarray, fraction: float) -> float:
+    """Return the level at a cumulative time ``fraction`` (0 = quietest).
+
+    The result is an observed block level rather than an interpolated value, so
+    every reported percentile is a level the station actually measured.
+    """
+    order = np.argsort(values, kind="stable")
+    ordered_values = values[order]
+    cumulative = np.cumsum(weights[order])
+    total = float(cumulative[-1])
+    if total <= 0:
+        return float(ordered_values[-1])
+    target = max(0.0, min(1.0, fraction)) * total
+    index = int(np.searchsorted(cumulative, target, side="left"))
+    return float(ordered_values[min(index, ordered_values.size - 1)])
+
+
+def summarize_noise_blocks(blocks: Sequence[NoiseResult]) -> NoiseIntervalStats:
+    """Combine per-block LAeq values into interval Leq, max and L10/L50/L90.
+
+    ``L10`` is the level exceeded for 10 % of the interval, ``L90`` for 90 %.
+    Blocks are time-weighted so a slow ADC block counts for its real duration.
+    """
+    if not blocks:
+        raise ValueError("no noise blocks to summarise")
+
+    levels = np.asarray([block.db_a for block in blocks], dtype=np.float64)
+    weights = np.asarray([max(block.duration_seconds, 1e-9) for block in blocks], dtype=np.float64)
+    if not np.all(np.isfinite(levels)):
+        raise ValueError("noise levels were not finite")
+
+    # Energy average: 10*log10(sum(t_i * 10^(L_i/10)) / sum(t_i)).
+    energy = float(np.sum(weights * np.power(10.0, levels / 10.0)) / np.sum(weights))
+    leq = 10.0 * math.log10(max(energy, 1e-12))
+
+    total_samples = sum(block.sample_count for block in blocks)
+    total_duration = float(np.sum(weights))
+    clipped = sum(block.clipping_pct * block.sample_count / 100.0 for block in blocks)
+    sample_rate = total_samples / total_duration if total_duration > 0 else 0.0
+
+    return NoiseIntervalStats(
+        leq_db_a=leq,
+        max_db_a=float(np.max(levels)),
+        # L10 is exceeded 10 % of the time (90th percentile); L90 is the
+        # background level exceeded 90 % of the time (10th percentile).
+        l10_db_a=_weighted_percentile(levels, weights, 0.90),
+        l50_db_a=_weighted_percentile(levels, weights, 0.50),
+        l90_db_a=_weighted_percentile(levels, weights, 0.10),
+        peak_db=max(block.peak_db for block in blocks),
+        dbfs=max(block.dbfs for block in blocks),
+        sample_rate_hz=round(sample_rate),
+        clipping_pct=100.0 * clipped / total_samples if total_samples else 0.0,
+        sample_count=total_samples,
+        block_count=len(blocks),
+        duration_seconds=total_duration,
+    )
 
 
 def a_weighting_db(frequencies: np.ndarray) -> np.ndarray:

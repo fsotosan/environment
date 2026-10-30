@@ -34,7 +34,14 @@ class Sample(Base):
 
     lux: Mapped[float | None] = mapped_column(Float)
 
-    noise_db_a: Mapped[float | None] = mapped_column(Float)
+    # Interval statistics: Leq, maximum and L10/L50/L90 over the logging
+    # interval. All values are approximate because the ADC is not an audio
+    # interface.
+    noise_leq_db_a: Mapped[float | None] = mapped_column(Float)
+    noise_max_db_a: Mapped[float | None] = mapped_column(Float)
+    noise_l10_db_a: Mapped[float | None] = mapped_column(Float)
+    noise_l50_db_a: Mapped[float | None] = mapped_column(Float)
+    noise_l90_db_a: Mapped[float | None] = mapped_column(Float)
     noise_peak_db: Mapped[float | None] = mapped_column(Float)
     noise_dbfs: Mapped[float | None] = mapped_column(Float)
     noise_sample_rate_hz: Mapped[int | None] = mapped_column(Integer)
@@ -55,7 +62,11 @@ class Sample(Base):
             "voc_index": self.voc_index,
             "nox_index": self.nox_index,
             "lux": self.lux,
-            "noise_db_a": self.noise_db_a,
+            "noise_leq_db_a": self.noise_leq_db_a,
+            "noise_max_db_a": self.noise_max_db_a,
+            "noise_l10_db_a": self.noise_l10_db_a,
+            "noise_l50_db_a": self.noise_l50_db_a,
+            "noise_l90_db_a": self.noise_l90_db_a,
             "noise_peak_db": self.noise_peak_db,
             "noise_dbfs": self.noise_dbfs,
             "noise_sample_rate_hz": self.noise_sample_rate_hz,
@@ -88,7 +99,7 @@ class DailyStat(Base):
     lux_avg: Mapped[float | None] = mapped_column(Float)
     lux_min: Mapped[float | None] = mapped_column(Float)
     lux_max: Mapped[float | None] = mapped_column(Float)
-    noise_avg: Mapped[float | None] = mapped_column(Float)
+    noise_leq_avg: Mapped[float | None] = mapped_column(Float)
     noise_max: Mapped[float | None] = mapped_column(Float)
 
     updated_at: Mapped[int] = mapped_column(BigInteger, nullable=False)
@@ -114,7 +125,7 @@ class DailyStat(Base):
             "lux_avg": self.lux_avg,
             "lux_min": self.lux_min,
             "lux_max": self.lux_max,
-            "noise_avg": self.noise_avg,
+            "noise_leq_avg": self.noise_leq_avg,
             "noise_max": self.noise_max,
         }
 

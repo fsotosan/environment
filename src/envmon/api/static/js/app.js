@@ -33,7 +33,7 @@ const DEFAULT_CONFIG = {
     pm10_ugm3: { min: null, max: 50 },
     voc_index: { min: null, max: 250 },
     lux: { min: 200, max: null },
-    noise_db_a: { min: null, max: 65 },
+    noise_leq_db_a: { min: null, max: 65 },
   },
   llm: { enabled: false, model: null },
 };
@@ -137,7 +137,7 @@ function thresholdFor(key) {
     pm10: "pm10_ugm3",
     voc: "voc_index",
     lux: "lux",
-    noise: "noise_db_a",
+    noise: "noise_leq_db_a",
   };
   return state.config.thresholds[map[key]] || {};
 }
@@ -362,14 +362,15 @@ function renderTimeCharts() {
   state.charts.air.setOption(air, true);
 
   const lightNoise = baseOption();
-  lightNoise.legend.data = ["Illuminance", "Sound (approx.)"];
+  lightNoise.legend.data = ["Illuminance", "Sound Leq (approx.)", "Sound max (approx.)"];
   lightNoise.yAxis = [
     valueAxis("lx", (value) => `${value}`),
     { ...valueAxis("dB(A)", (value) => `${value}`), splitLine: { show: false } },
   ];
   lightNoise.series = [
     lineSeries("Illuminance", COLORS.lux, timeData("lux"), 0),
-    lineSeries("Sound (approx.)", COLORS.noise, timeData("noise_db_a"), 1),
+    lineSeries("Sound Leq (approx.)", COLORS.noise, timeData("noise_leq_db_a"), 1),
+    lineSeries("Sound max (approx.)", "#1b6e2e", timeData("noise_max"), 1, 1.2),
   ];
   state.charts["light-noise"].setOption(lightNoise, true);
 }
@@ -422,10 +423,13 @@ function renderCurrent(sample) {
   setCard("pm10", sample.pm10_ugm3, 1);
   setCard("voc", sample.voc_index, 0);
   setCard("lux", sample.lux, 0);
-  setCard("noise", sample.noise_db_a, 1);
+  setCard("noise", sample.noise_leq_db_a, 1);
+  $("sub-noise").textContent =
+    `Leq ${fmt(sample.noise_leq_db_a, 1)} · max ${fmt(sample.noise_max_db_a, 1)}` +
+    ` · L90 ${fmt(sample.noise_l90_db_a, 1)} dB(A)`;
   if (sample.noise_clipping_pct > 5) {
-    const sub = $("sub-noise");
-    sub.textContent = `ADC clipping ${fmt(sample.noise_clipping_pct, 1)}% — reduce gain`;
+    $("sub-noise").textContent =
+      `ADC clipping ${fmt(sample.noise_clipping_pct, 1)}% — reduce gain`;
   }
 }
 
@@ -482,7 +486,8 @@ function renderSeries(subs) {
   }
   if (subs.noise.avg !== null) {
     $("sub-noise").textContent =
-      `${label} avg ${fmt(subs.noise.avg, 1)} dB(A) · peak ${fmt(subs.noise.max, 1)}`;
+      `${label} Leq ${fmt(subs.noise.avg, 1)} · max ${fmt(subs.noise.max, 1)}` +
+      ` · L90 ${fmt(subs.noise.min, 1)} dB(A)`;
   }
 }
 
@@ -495,7 +500,7 @@ function updateSeriesData() {
     pm10: summarise(points, "pm10_ugm3", "pm10_ugm3", "pm10_max"),
     voc: summarise(points, "voc_index", "voc_index", "voc_max"),
     lux: summarise(points, "lux", "lux_min", "lux_max"),
-    noise: summarise(points, "noise_db_a", "noise_db_a", "noise_max"),
+    noise: summarise(points, "noise_leq_db_a", "noise_l90_db_a", "noise_max"),
   });
 }
 
@@ -595,7 +600,7 @@ function renderDailyTable() {
       `${fmt(row.humidity_avg, 0)}%`,
       `${fmt(row.pm2_5_avg, 1)} µg/m³`,
       `${fmt(row.pm10_max, 1)} µg/m³`,
-      `${fmt(row.noise_avg, 1)} dB(A)`,
+      `${fmt(row.noise_leq_avg, 1)} dB(A)`,
     ];
     cells.forEach((value) => {
       const td = document.createElement("td");
@@ -749,7 +754,7 @@ function bindControls() {
       "lux_avg",
       "lux_min",
       "lux_max",
-      "noise_avg",
+      "noise_leq_avg",
       "noise_max",
     ];
     const escape = (value) => {

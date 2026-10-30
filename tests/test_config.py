@@ -44,7 +44,7 @@ sensors:
     assert settings.sensors.mode == "hardware"
     assert settings.sensors.noise.sample_rate_hz == 4000
     # Nested YAML deep-merges with field defaults.
-    assert settings.sensors.noise.duration_seconds == 1.0
+    assert settings.sensors.noise.window_seconds == 1.0
     assert settings.web.host == "0.0.0.0"
 
 
@@ -96,7 +96,7 @@ def test_sqlite_path_handles_absolute_and_relative_urls(tmp_path) -> None:
         ({"timezone": "Mars/Olympus_Mons"}, "unknown timezone"),
         ({"database": {"url": "mysql://db/envmon"}}, "database.url"),
         ({"log_level": "LOUD"}, "log_level"),
-        ({"sensors": {"noise": {"sample_rate_hz": 8000, "duration_seconds": 10}}}, "80000"),
+        ({"sensors": {"noise": {"sample_rate_hz": 8000, "window_seconds": 10}}}, "80000"),
         ({"sensors": {"noise": {"highpass_hz": 200, "sample_rate_hz": 200}}}, "Nyquist"),
     ],
 )

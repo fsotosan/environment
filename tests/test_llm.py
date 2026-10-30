@@ -33,7 +33,7 @@ def test_rules_summary_reports_all_metrics(settings: Settings) -> None:
         "lux_avg": 450.0,
         "lux_min": 20.0,
         "lux_max": 900.0,
-        "noise_avg": 42.0,
+        "noise_leq_avg": 42.0,
         "noise_max": 70.0,
     }
 

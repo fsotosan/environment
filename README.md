@@ -103,14 +103,16 @@ Useful first commands:
 
 | Sensor | Grove port | I²C address | Notes |
 |---|---|---|---|
-| SEN54 / SEN55 | I²C (through a Grove I²C Hub) | `0x69` | 3.3 V / 5 V sensor; PM, RH/T, VOC; SEN55 adds NOx |
-| TSL2561 light | I²C (through the same hub) | `0x29` | Addresses do not conflict |
+| SEN54 / SEN55 | I²C port on the Base HAT | `0x69` | 3.3 V / 5 V sensor; PM, RH/T, VOC; SEN55 adds NOx |
+| TSL2561 light | I²C port on the Base HAT | `0x29` | Addresses do not conflict |
 | Analog microphone | Analog **A0** | Base HAT ADC `0x04` or `0x08` | Raw analog output, biased around mid-rail |
 | Base HAT | 40-pin header | `0x04` (STM32) / `0x08` (MM32) | 3.3 V logic; provides the ADC |
 
-The Base HAT has a single Grove I²C connector. Use a **Grove I²C Hub** (or a
-Grove-compatible splitter) for the SEN5x and TSL2561. Do not connect 5 V-only
-Grove devices to the Pi's 3.3 V I²C pins.
+The Base HAT has **three** Grove I²C ports, all wired straight to the Pi's I²C
+pins (the HAT itself acts as the hub), so the SEN5x and TSL2561 can both be
+plugged in directly — no separate Grove I²C Hub is needed. Their addresses
+(`0x69` and `0x29`) sit on the same bus as the ADC (`0x04`/`0x08`) without
+conflicting. Do not connect 5 V-only Grove devices to the Pi's 3.3 V I²C pins.
 
 ### Raspberry Pi OS preparation
 
@@ -235,6 +237,7 @@ Important settings:
 | `sensors.mode` | `hardware` | `hardware` or `simulator` |
 | `sensors.sen5x.temperature_offset_c` | `0.0` | Compensate enclosure self-heating |
 | `sensors.light.gain` | `16` | Lower to `1` if lux saturates |
+| `sensors.noise.window_seconds` | `1.0` | Continuous-capture analysis block length |
 | `sensors.noise.calibration_offset_db` | `0.0` | Calibrate against a sound-level meter |
 | `retention.raw_days` | `730` | Raw data retention |
 | `retention.backup_enabled` | `true` | Daily SQLite backup |
@@ -400,6 +403,11 @@ before exposing anything beyond localhost.
 
 - The Base HAT ADC is polled over I²C. Expect roughly **1–2 kHz** effective
   sampling, not 44.1 kHz. The measured rate is stored with each sample.
+- Noise is captured continuously in a background thread. One row is written per
+  `sampling.interval_seconds` (30 s by default) containing the interval **Leq**
+  (energy average), **max**, **L10**, **L50** and **L90**. L10 is the level
+  exceeded for 10 % of the interval, L50 the median and L90 the background
+  level exceeded for 90 % of the interval.
 - The ADC's anti-aliasing and the microphone's frequency response are not
   characterised. A-weighting is applied digitally and the result is labelled
   approximate.
@@ -493,7 +501,7 @@ the data and backup directories.
 |---|---|
 | `No such file or directory: /dev/i2c-1` | Enable I²C in `raspi-config`, reboot, check `i2cdetect -y 1` |
 | `Permission denied` on I²C | `sudo usermod -aG i2c envmon`, re-login, restart the service |
-| `i2cdetect` shows no `69` | Check SEN5x cable, power, and the Grove I²C Hub |
+| `i2cdetect` shows no `69` | Check the SEN5x cable and power, and that it is in an I²C port (not an analog/digital port) |
 | `SEN5x has no new data yet` | Normal for ~1 s after start, or during automatic fan cleaning; retry |
 | Light readings pinned or zero | Lower `sensors.light.gain` to `1`; check for a saturated lux value |
 | Sound level always very high/low | Calibrate `calibration_offset_db`; verify the mic is on A0 and the ADC address is right |

@@ -72,7 +72,10 @@ sensors:
     # Target polling rate. The actual measured rate is stored with each
     # sample and is usually lower (~1-2 kHz on a 100 kHz I2C bus).
     sample_rate_hz: 2000
-    duration_seconds: 1.0
+    # Length of each continuous-capture analysis block. Noise is sampled
+    # continuously and one Leq/max/percentile row is written per sampling
+    # interval (sampling.interval_seconds).
+    window_seconds: 1.0
     # Microphone sensitivity. The Grove analog microphone is roughly
     # 10 mV/Pa; use a sound-level meter to calibrate the offset below.
     sensitivity_mv_per_pa: 10.0
@@ -110,7 +113,7 @@ thresholds:
     max: 250.0
   lux:
     min: 200.0
-  noise_db_a:
+  noise_leq_db_a:
     max: 65.0
 
 # Optional external Ollama. Do not run Ollama on the Raspberry Pi itself;

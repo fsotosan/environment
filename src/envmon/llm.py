@@ -90,8 +90,8 @@ def rules_summary(day: dt.date, stats: dict[str, object], settings: Settings) ->
         + ")"
     )
     observations.append(
-        "sound level averaged "
-        + _fmt(stats.get("noise_avg"), " dB(A)")
+        "sound level (Leq) averaged "
+        + _fmt(stats.get("noise_leq_avg"), " dB(A)")
         + " (max "
         + _fmt(stats.get("noise_max"), " dB(A)")
         + ")"
@@ -106,7 +106,7 @@ def rules_summary(day: dt.date, stats: dict[str, object], settings: Settings) ->
         flags.append("PM2.5 peak above the configured attention level")
     if thresholds.pm10_ugm3.status(stats.get("pm10_max")) == "high":
         flags.append("PM10 peak above the configured attention level")
-    if thresholds.noise_db_a.status(stats.get("noise_max")) == "high":
+    if thresholds.noise_leq_db_a.status(stats.get("noise_max")) == "high":
         flags.append("sound peak above the configured attention level")
 
     if flags:
@@ -271,7 +271,7 @@ class DailySummaryService:
                 "humidity_pct": self.settings.thresholds.humidity_pct.model_dump(),
                 "pm2_5_ugm3": self.settings.thresholds.pm2_5_ugm3.model_dump(),
                 "pm10_ugm3": self.settings.thresholds.pm10_ugm3.model_dump(),
-                "noise_db_a": self.settings.thresholds.noise_db_a.model_dump(),
+                "noise_leq_db_a": self.settings.thresholds.noise_leq_db_a.model_dump(),
             },
             "deterministic_draft": rules,
         }

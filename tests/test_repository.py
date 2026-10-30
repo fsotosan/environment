@@ -32,7 +32,11 @@ def sample(
         "voc_index": 110.0,
         "nox_index": 8.0,
         "lux": lux,
-        "noise_db_a": noise,
+        "noise_leq_db_a": noise,
+        "noise_max_db_a": noise + 6,
+        "noise_l10_db_a": noise + 3,
+        "noise_l50_db_a": noise,
+        "noise_l90_db_a": noise - 3,
         "noise_peak_db": noise + 10,
         "noise_dbfs": -38.0,
         "noise_sample_rate_hz": 2000,
@@ -82,6 +86,9 @@ def test_series_buckets_and_averages(repository: Repository) -> None:
     assert points[0]["temperature_min"] == 20.0
     assert points[0]["temperature_max"] == 22.0
     assert points[0]["pm2_5_ugm3"] == 15.0
+    assert points[0]["noise_leq_db_a"] == 42.0
+    assert points[0]["noise_max"] == 48.0
+    assert points[0]["noise_l90_db_a"] == 39.0
     assert points[1]["temperature_c"] == 26.0
 
 
@@ -107,7 +114,8 @@ def test_aggregate_day_and_daily_queries(repository: Repository) -> None:
     assert result["temperature_avg"] == 22.0
     assert result["temperature_min"] == 20.0
     assert result["temperature_max"] == 24.0
-    assert result["noise_max"] == 50.0
+    assert result["noise_leq_avg"] == 45.0
+    assert result["noise_max"] == 56.0
 
     assert repository.get_daily_stat(day)["sample_count"] == 2
     assert repository.daily_stats(days=1, end_day=day)[0]["day"] == "2026-10-30"

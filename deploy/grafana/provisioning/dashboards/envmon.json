@@ -178,7 +178,7 @@
     },
     {
       "datasource": {"type": "postgres", "uid": "envmon-postgres"},
-      "description": "Approximate A-weighted level from a polled I2C ADC. Not a certified sound-level measurement.",
+      "description": "Approximate interval Leq and maximum from a continuously polled I2C ADC. Not a certified sound-level measurement.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -204,7 +204,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT $__timeGroupAlias(to_timestamp(ts), $__interval), avg(noise_db_a) AS \"Approx. dB(A)\", max(noise_peak_db) AS \"Peak\" FROM samples WHERE $__timeFilter(to_timestamp(ts)) GROUP BY 1 ORDER BY 1",
+          "rawSql": "SELECT $__timeGroupAlias(to_timestamp(ts), $__interval), avg(noise_leq_db_a) AS \"Leq (approx.)\", max(noise_max_db_a) AS \"Max\" FROM samples WHERE $__timeFilter(to_timestamp(ts)) GROUP BY 1 ORDER BY 1",
           "refId": "A"
         }
       ],

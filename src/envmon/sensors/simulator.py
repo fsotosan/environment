@@ -45,6 +45,12 @@ class SimulatorSensor:
         # charts more interesting without looking like an alarm.
         bump = 7.0 if (ts // 60) % 20 in (0, 1) else 0.0
         noise = 41.0 + 3.0 * math.sin(ts / 900) + bump + self._random.gauss(0, 1.5)
+        # Plausible interval statistics: the maximum is above L10, which is
+        # above the median, which is above the background L90.
+        noise_max = noise + 8.0 + self._random.random() * 4.0
+        noise_l10 = noise + 3.0 + self._random.random() * 2.0
+        noise_l50 = noise + self._random.gauss(0, 0.5)
+        noise_l90 = noise - 3.0 - self._random.random() * 2.0
 
         return {
             "temperature_c": round(temperature, 2),
@@ -56,7 +62,11 @@ class SimulatorSensor:
             "voc_index": round(voc, 1),
             "nox_index": round(nox, 1),
             "lux": round(lux, 1),
-            "noise_db_a": round(noise, 1),
+            "noise_leq_db_a": round(noise, 1),
+            "noise_max_db_a": round(noise_max, 1),
+            "noise_l10_db_a": round(noise_l10, 1),
+            "noise_l50_db_a": round(noise_l50, 1),
+            "noise_l90_db_a": round(noise_l90, 1),
             "noise_peak_db": round(noise + 11.0 + self._random.random() * 5.0, 1),
             "noise_dbfs": round(-38.0 + self._random.gauss(0, 1.0), 1),
             "noise_sample_rate_hz": 2000,

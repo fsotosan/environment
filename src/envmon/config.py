@@ -124,7 +124,9 @@ class NoiseSettings(BaseModel):
     adc_channel: int = Field(default=0, ge=0, le=3)
     # The Grove Base HAT ADC is polled over I2C; ~2 kHz is a realistic maximum.
     sample_rate_hz: int = Field(default=2000, ge=200, le=8000)
-    duration_seconds: float = Field(default=1.0, ge=0.2, le=10.0)
+    # Length of each continuous-capture analysis block. The sampler still
+    # writes one row per sampling.interval_seconds and summarises the blocks.
+    window_seconds: float = Field(default=1.0, ge=0.2, le=10.0)
     sensitivity_mv_per_pa: float = Field(default=10.0, gt=0.0, le=1000.0)
     calibration_offset_db: float = Field(default=0.0, ge=-60.0, le=60.0)
     a_weighting: bool = True
@@ -133,9 +135,9 @@ class NoiseSettings(BaseModel):
 
     @model_validator(mode="after")
     def _check_budget(self) -> NoiseSettings:
-        if self.sample_rate_hz * self.duration_seconds >= 80_000:
+        if self.sample_rate_hz * self.window_seconds >= 80_000:
             raise ValueError(
-                "noise sample_rate_hz * duration_seconds must stay below 80000; "
+                "noise sample_rate_hz * window_seconds must stay below 80000; "
                 "the Grove Base HAT ADC is slow and long captures block sampling"
             )
         if self.highpass_hz * 2 >= self.sample_rate_hz:
@@ -191,7 +193,9 @@ class ThresholdSettings(BaseModel):
     voc_index: MetricThreshold = Field(default_factory=lambda: MetricThreshold(min=None, max=250.0))
     nox_index: MetricThreshold = Field(default_factory=lambda: MetricThreshold(min=None, max=250.0))
     lux: MetricThreshold = Field(default_factory=lambda: MetricThreshold(min=200.0, max=None))
-    noise_db_a: MetricThreshold = Field(default_factory=lambda: MetricThreshold(min=None, max=65.0))
+    noise_leq_db_a: MetricThreshold = Field(
+        default_factory=lambda: MetricThreshold(min=None, max=65.0)
+    )
 
 
 class LlmSettings(BaseModel):

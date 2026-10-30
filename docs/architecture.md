@@ -105,12 +105,16 @@ daily cycles, including a periodic noise bump. It is never used as a fallback.
 | Grove Base HAT ADC | I²C 1 | `0x04` or `0x08` | 12-bit polled ADC; microphone on A0 by default |
 | Grove microphone | Analog A0 | — | Biased analog output; no audio interface |
 
-The Base HAT exposes a single Grove I²C connector, so SEN5x and TSL2561 need a
-Grove I²C Hub. The addresses do not conflict.
+The Base HAT exposes three Grove I²C ports, all wired directly to the Pi's I²C
+pins (bus 1), so the HAT itself acts as an I²C hub and SEN5x + TSL2561 + ADC
+share one bus without an external hub. Their addresses (`0x69`, `0x29`,
+`0x04`/`0x08`) do not conflict.
 
 ### Noise estimator
 
-`noise_analysis.estimate_noise()` treats the ADC samples as an audio waveform:
+Noise is captured continuously by a background thread in `NoiseSensor`, not once
+per sampling interval. Each `sensors.noise.window_seconds` analysis block is
+treated as an audio waveform by `noise_analysis.estimate_noise()`:
 
 1. convert counts to volts and remove the DC mean;
 2. apply a Hann window and an FFT;
@@ -119,6 +123,14 @@ Grove I²C Hub. The addresses do not conflict.
 5. reconstruct one-sided power with Parseval's theorem;
 6. convert RMS volts to dB SPL using `sensitivity_mv_per_pa` and 20 µPa;
 7. add `calibration_offset_db`; also report peak dB, dBFS and clipping percentage.
+
+When the sampler asks for a reading, `summarize_noise_blocks()` combines the
+accumulated blocks into one interval result:
+
+- **Leq** — time-weighted energy average of the block LAeq values;
+- **max** — loudest block LAeq;
+- **L10/L50/L90** — time-weighted levels exceeded 10 %, 50 % and 90 % of the
+  interval, so L10 tracks events, L50 is the median and L90 the background.
 
 The I²C-polled ADC typically reaches 1–2 kHz, so the bandwidth is far below a
 sound-level meter. Values are for trends only. The measured sample rate is stored

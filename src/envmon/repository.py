@@ -36,7 +36,11 @@ CSV_COLUMNS = [
     "voc_index",
     "nox_index",
     "lux",
-    "noise_db_a",
+    "noise_leq_db_a",
+    "noise_max_db_a",
+    "noise_l10_db_a",
+    "noise_l50_db_a",
+    "noise_l90_db_a",
     "noise_peak_db",
     "noise_dbfs",
     "noise_sample_rate_hz",
@@ -81,7 +85,11 @@ class Repository:
             "voc_index": _round(values.get("voc_index"), 1),
             "nox_index": _round(values.get("nox_index"), 1),
             "lux": _round(values.get("lux"), 1),
-            "noise_db_a": _round(values.get("noise_db_a"), 1),
+            "noise_leq_db_a": _round(values.get("noise_leq_db_a"), 1),
+            "noise_max_db_a": _round(values.get("noise_max_db_a"), 1),
+            "noise_l10_db_a": _round(values.get("noise_l10_db_a"), 1),
+            "noise_l50_db_a": _round(values.get("noise_l50_db_a"), 1),
+            "noise_l90_db_a": _round(values.get("noise_l90_db_a"), 1),
             "noise_peak_db": _round(values.get("noise_peak_db"), 1),
             "noise_dbfs": _round(values.get("noise_dbfs"), 1),
             "noise_sample_rate_hz": (
@@ -166,8 +174,11 @@ class Repository:
             func.avg(Sample.lux),
             func.min(Sample.lux),
             func.max(Sample.lux),
-            func.avg(Sample.noise_db_a),
-            func.max(Sample.noise_db_a),
+            func.avg(Sample.noise_leq_db_a),
+            func.max(Sample.noise_max_db_a),
+            func.avg(Sample.noise_l10_db_a),
+            func.avg(Sample.noise_l50_db_a),
+            func.avg(Sample.noise_l90_db_a),
         ]
         statement = (
             select(*columns)
@@ -202,8 +213,11 @@ class Repository:
                         "lux": _round(row[18], 1),
                         "lux_min": _round(row[19], 1),
                         "lux_max": _round(row[20], 1),
-                        "noise_db_a": _round(row[21], 1),
+                        "noise_leq_db_a": _round(row[21], 1),
                         "noise_max": _round(row[22], 1),
+                        "noise_l10_db_a": _round(row[23], 1),
+                        "noise_l50_db_a": _round(row[24], 1),
+                        "noise_l90_db_a": _round(row[25], 1),
                     }
                 )
 
@@ -255,8 +269,8 @@ class Repository:
             func.avg(Sample.lux),
             func.min(Sample.lux),
             func.max(Sample.lux),
-            func.avg(Sample.noise_db_a),
-            func.max(Sample.noise_db_a),
+            func.avg(Sample.noise_leq_db_a),
+            func.max(Sample.noise_max_db_a),
         ).where(Sample.ts >= start, Sample.ts < end)
         with self.session_factory() as session:
             row = session.execute(statement).one()
@@ -280,7 +294,7 @@ class Repository:
             "lux_avg": _round(row[15], 1),
             "lux_min": _round(row[16], 1),
             "lux_max": _round(row[17], 1),
-            "noise_avg": _round(row[18], 1),
+            "noise_leq_avg": _round(row[18], 1),
             "noise_max": _round(row[19], 1),
         }
 
@@ -390,7 +404,11 @@ class Repository:
                         sample.voc_index,
                         sample.nox_index,
                         sample.lux,
-                        sample.noise_db_a,
+                        sample.noise_leq_db_a,
+                        sample.noise_max_db_a,
+                        sample.noise_l10_db_a,
+                        sample.noise_l50_db_a,
+                        sample.noise_l90_db_a,
                         sample.noise_peak_db,
                         sample.noise_dbfs,
                         sample.noise_sample_rate_hz,

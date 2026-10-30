@@ -7,10 +7,14 @@ import math
 import numpy as np
 import pytest
 
+from envmon.config import NoiseSettings
+from envmon.sensors.noise import NoiseSensor, _BlockBuffer
 from envmon.sensors.noise_analysis import (
     REFERENCE_PRESSURE_PA,
+    NoiseResult,
     a_weighting_db,
     estimate_noise,
+    summarize_noise_blocks,
 )
 
 
@@ -97,3 +101,75 @@ def test_silence_is_finite_and_zero() -> None:
 def test_invalid_inputs_raise(samples, rate, message) -> None:
     with pytest.raises(ValueError, match=message):
         estimate_noise(samples, sample_rate_hz=rate)
+
+
+def _block(level: float, *, seconds: float = 1.0, clipping: float = 0.0) -> NoiseResult:
+    rate = 2000
+    return NoiseResult(
+        db_a=level,
+        peak_db=level + 10.0,
+        dbfs=-40.0,
+        sample_rate_hz=rate,
+        clipping_pct=clipping,
+        rms_volts=0.01,
+        sample_count=int(seconds * rate),
+    )
+
+
+def test_summarize_blocks_energy_average_and_percentiles() -> None:
+    stats = summarize_noise_blocks([_block(40.0), _block(50.0), _block(60.0)])
+
+    expected_leq = 10.0 * math.log10((10.0**4 + 10.0**5 + 10.0**6) / 3.0)
+    assert stats.leq_db_a == pytest.approx(expected_leq, abs=1e-6)
+    assert stats.max_db_a == 60.0
+    assert stats.l10_db_a >= stats.l50_db_a >= stats.l90_db_a
+    assert stats.l10_db_a == 60.0
+    assert stats.l50_db_a == 50.0
+    assert stats.l90_db_a == 40.0
+    assert stats.block_count == 3
+    assert stats.duration_seconds == pytest.approx(3.0)
+
+
+def test_summarize_blocks_weights_by_duration() -> None:
+    blocks = [_block(40.0, seconds=1.0), _block(60.0, seconds=3.0)]
+    stats = summarize_noise_blocks(blocks)
+
+    expected_leq = 10.0 * math.log10((1.0 * 10.0**4 + 3.0 * 10.0**6) / 4.0)
+    assert stats.leq_db_a == pytest.approx(expected_leq, abs=1e-6)
+    # Three quarters of the interval is loud, so the 90th percentile is loud
+    # and the 10th percentile is the quieter block.
+    assert stats.l10_db_a == 60.0
+    assert stats.l90_db_a == 40.0
+    assert stats.sample_count == 8000
+    assert stats.duration_seconds == pytest.approx(4.0)
+
+
+def test_summarize_blocks_reports_peak_and_clipping() -> None:
+    stats = summarize_noise_blocks([_block(40.0, clipping=0.0), _block(50.0, clipping=10.0)])
+    assert stats.peak_db == 60.0
+    assert stats.dbfs == -40.0
+    assert stats.clipping_pct == pytest.approx(5.0)
+
+
+def test_summarize_blocks_rejects_empty_input() -> None:
+    with pytest.raises(ValueError, match="no noise blocks"):
+        summarize_noise_blocks([])
+
+
+def test_sensor_read_summarises_buffered_blocks(monkeypatch) -> None:
+    sensor = NoiseSensor.__new__(NoiseSensor)
+    sensor.settings = NoiseSettings(window_seconds=1.0)
+    sensor._buffer = _BlockBuffer()
+    for level in (40.0, 50.0, 60.0):
+        sensor._buffer.add(_block(level))
+    monkeypatch.setattr(sensor, "_ensure_worker", lambda: None)
+
+    result = sensor.read()
+
+    assert result["noise_leq_db_a"] == pytest.approx(55.7, abs=0.1)
+    assert result["noise_max_db_a"] == 60.0
+    assert result["noise_l10_db_a"] == 60.0
+    assert result["noise_l50_db_a"] == 50.0
+    assert result["noise_l90_db_a"] == 40.0
+    # The buffer is drained so the next read only sees new blocks.
+    assert sensor._buffer.drain(0)[0] == []

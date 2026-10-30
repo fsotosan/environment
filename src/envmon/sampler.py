@@ -122,7 +122,7 @@ class Sampler:
                 record.get("temperature_c"),
                 record.get("pm2_5_ugm3"),
                 record.get("lux"),
-                record.get("noise_db_a"),
+                record.get("noise_leq_db_a"),
             )
         if reading.errors:
             logger.warning("partial sample: %s", self.last_error)
