@@ -1,0 +1,47 @@
+[Unit]
+Description=Environment Monitoring Station
+Documentation=https://github.com/fsotosan/environment
+After=network-online.target time-sync.target
+Wants=network-online.target
+# Do not wait for time-sync.target on systems without it.
+After=systemd-time-wait-sync.service
+
+[Service]
+Type=simple
+User=envmon
+Group=envmon
+WorkingDirectory=/opt/envmon
+Environment=PYTHONUNBUFFERED=1
+Environment=ENVMON_CONFIG=/etc/envmon/config.yaml
+Environment=ENVMON_DATABASE__URL=sqlite:////var/lib/envmon/envmon.db
+Environment=ENVMON_RETENTION__BACKUP_DIR=/var/backups/envmon
+Environment=ENVMON_LOG_FILE=/var/log/envmon/envmon.log
+# Optional overrides (mode, port, Ollama URL, ...). Missing file is fine.
+EnvironmentFile=-/etc/envmon/envmon.env
+ExecStart=/opt/envmon/.venv/bin/envmon run
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGTERM
+
+# Hardening: only the data, backup and log directories are writable.
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=no
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+ReadWritePaths=/var/lib/envmon /var/backups/envmon /var/log/envmon
+# I2C is a character device; PrivateDevices=yes would hide it.
+DeviceAllow=/dev/i2c-1 rw
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="envmon-root" content="{{ request.scope.root_path }}">
+  <title>{{ title }}</title>
+  <link rel="icon" href="{{ request.scope.root_path }}/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="{{ request.scope.root_path }}/static/css/app.css">
+</head>
+<body>
+  <div id="sim-banner" class="banner" hidden>
+    <strong>SIMULATED DATA</strong>
+    <span>This station is running in simulator mode. Values are synthetic, not measurements.</span>
+  </div>
+
+  <header class="header">
+    <div class="header-main">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" width="34" height="34">
+          <path d="M16 3c3.8 5.2 7 9.2 7 14a7 7 0 1 1-14 0c0-4.8 3.2-8.8 7-14Z" fill="none" stroke="currentColor" stroke-width="2"/>
+          <path d="M16 12v9M12.5 17.5h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div>
+        <h1>{{ station_name }}</h1>
+        <p class="subtitle">
+          <span id="station-subtitle">Indoor environment monitoring</span>
+          <span class="dot-sep">•</span>
+          <span id="updated">loading…</span>
+        </p>
+      </div>
+    </div>
+    <div class="header-status">
+      <span id="status-pill" class="pill pill-loading">
+        <span class="pill-dot"></span>
+        <span id="status-text">Connecting</span>
+      </span>
+      <button id="refresh-btn" class="icon-btn" type="button" title="Refresh now" aria-label="Refresh now">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="toolbar" aria-label="Time range and actions">
+      <div class="range-group" role="group" aria-label="Chart time range">
+        <button type="button" class="range-btn" data-hours="6">6 h</button>
+        <button type="button" class="range-btn is-active" data-hours="24">24 h</button>
+        <button type="button" class="range-btn" data-hours="168">7 d</button>
+        <button type="button" class="range-btn" data-hours="720">30 d</button>
+      </div>
+      <div class="toolbar-actions">
+        <a id="export-btn" class="btn" href="#" download>Export CSV</a>
+        <a class="btn btn-ghost" href="{{ request.scope.root_path }}/api/docs">API docs</a>
+      </div>
+    </section>
+
+    <section class="metric-grid" id="metric-grid" aria-label="Current readings">
+      <article class="metric" data-metric="temperature" style="--accent:#e8590c">
+        <div class="metric-head"><span class="metric-label">Temperature</span><span class="state-dot" data-state="unknown" title="Unknown"></span></div>
+        <div class="metric-value"><span id="value-temperature">–</span><span class="unit">°C</span></div>
+        <div class="metric-sub" id="sub-temperature">waiting for data</div>
+      </article>
+      <article class="metric" data-metric="humidity" style="--accent:#1c7ed6">
+        <div class="metric-head"><span class="metric-label">Humidity</span><span class="state-dot" data-state="unknown" title="Unknown"></span></div>
+        <div class="metric-value"><span id="value-humidity">–</span><span class="unit">%</span></div>
+        <div class="metric-sub" id="sub-humidity">waiting for data</div>
+      </article>
+      <article class="metric" data-metric="pm25" style="--accent:#f08c00">
+        <div class="metric-head"><span class="metric-label">PM2.5</span><span class="state-dot" data-state="unknown" title="Unknown"></span></div>
+        <div class="metric-value"><span id="value-pm25">–</span><span class="unit">µg/m³</span></div>
+        <div class="metric-sub" id="sub-pm25">waiting for data</div>
+      </article>
+      <article class="metric" data-metric="pm10" style="--accent:#c92a2a">
+        <div class="metric-head"><span class="metric-label">PM10</span><span class="state-dot" data-state="unknown" title="Unknown"></span></div>
+        <div class="metric-value"><span id="value-pm10">–</span><span class="unit">µg/m³</span></div>
+        <div class="metric-sub" id="sub-pm10">waiting for data</div>
+      </article>
+      <article class="metric" data-metric="voc" style="--accent:#7048e8">
+        <div class="metric-head"><span class="metric-label">VOC index</span><span class="state-dot" data-state="unknown" title="Unknown"></span></div>
+        <div class="metric-value"><span id="value-voc">–</span></div>
+        <div class="metric-sub" id="sub-voc">Sensor index, not concentration</div>
+      </article>
+      <article class="metric" data-metric="lux" style="--accent:#f2b705">
+        <div class="metric-head"><span class="metric-label">Illuminance</span><span class="state-dot" data-state="unknown" title="Unknown"></span></div>
+        <div class="metric-value"><span id="value-lux">–</span><span class="unit">lx</span></div>
+        <div class="metric-sub" id="sub-lux">waiting for data</div>
+      </article>
+      <article class="metric" data-metric="noise" style="--accent:#2f9e44">
+        <div class="metric-head"><span class="metric-label">Sound level <span class="approx">approx.</span></span><span class="state-dot" data-state="unknown" title="Unknown"></span></div>
+        <div class="metric-value"><span id="value-noise">–</span><span class="unit">dB(A)</span></div>
+        <div class="metric-sub" id="sub-noise">waiting for data</div>
+      </article>
+    </section>
+
+    <section class="charts">
+      <article class="chart-card">
+        <div class="chart-head">
+          <h2>Climate</h2>
+          <span class="chart-hint">temperature · humidity</span>
+        </div>
+        <div id="chart-climate" class="chart" role="img" aria-label="Temperature and humidity history"></div>
+      </article>
+      <article class="chart-card">
+        <div class="chart-head">
+          <h2>Air quality</h2>
+          <span class="chart-hint">PM2.5 · PM10 · VOC index</span>
+        </div>
+        <div id="chart-air" class="chart" role="img" aria-label="Air quality history"></div>
+      </article>
+      <article class="chart-card">
+        <div class="chart-head">
+          <h2>Light &amp; sound</h2>
+          <span class="chart-hint">lux · dB(A) approximate</span>
+        </div>
+        <div id="chart-light-noise" class="chart" role="img" aria-label="Illuminance and sound history"></div>
+      </article>
+      <article class="chart-card">
+        <div class="chart-head">
+          <h2>Daily trend</h2>
+          <span class="chart-hint">daily averages</span>
+        </div>
+        <div id="chart-daily" class="chart" role="img" aria-label="Daily environment trend"></div>
+      </article>
+    </section>
+
+    <section class="split">
+      <article class="panel summary-panel">
+        <div class="panel-head">
+          <div>
+            <h2>Today’s summary</h2>
+            <p id="summary-meta" class="panel-meta">Generating…</p>
+          </div>
+          <button id="summary-refresh" class="btn btn-ghost" type="button">Regenerate</button>
+        </div>
+        <p id="summary-text" class="summary-text" aria-live="polite">Loading summary…</p>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>Station health</h2>
+            <p class="panel-meta">Sensors, database and recent errors</p>
+          </div>
+        </div>
+        <ul id="sensor-list" class="sensor-list">
+          <li class="muted">Loading sensor status…</li>
+        </ul>
+        <div id="error-box" class="error-box" hidden>
+          <strong>Recent errors</strong>
+          <ul id="error-list"></ul>
+        </div>
+      </article>
+    </section>
+
+    <section class="panel daily-panel">
+      <div class="panel-head">
+        <div>
+          <h2>Daily records</h2>
+          <p class="panel-meta">Aggregated once per day; today’s row appears after midnight.</p>
+        </div>
+        <button id="download-daily" class="btn btn-ghost" type="button">Download CSV</button>
+      </div>
+      <div class="table-wrap">
+        <table class="daily-table">
+          <thead>
+            <tr>
+              <th scope="col">Day</th>
+              <th scope="col">Samples</th>
+              <th scope="col">Temp avg</th>
+              <th scope="col">Temp min–max</th>
+              <th scope="col">Humidity</th>
+              <th scope="col">PM2.5 avg</th>
+              <th scope="col">PM10 max</th>
+              <th scope="col">Noise avg</th>
+            </tr>
+          </thead>
+          <tbody id="daily-table-body">
+            <tr><td colspan="8" class="muted">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div>
+      <span id="footer-mode">–</span>
+      <span class="dot-sep">•</span>
+      <span id="footer-db">–</span>
+      <span class="dot-sep">•</span>
+      <span id="footer-tz">–</span>
+    </div>
+    <div>
+      <span id="footer-version">envmon</span>
+      <span class="dot-sep">•</span>
+      <span>Noise readings are approximate, not a certified sound-level measurement.</span>
+    </div>
+  </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="{{ request.scope.root_path }}/static/vendor/echarts.min.js"></script>
+  <script src="{{ request.scope.root_path }}/static/js/app.js"></script>
+</body>
+</html>

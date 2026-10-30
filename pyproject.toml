@@ -1,0 +1,115 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "envmon"
+version = "0.1.0"
+description = "A 24/7 indoor environment monitoring station for Raspberry Pi and Grove sensors"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "fsotosan" }]
+requires-python = ">=3.11"
+keywords = ["raspberry-pi", "grove", "environment", "monitoring", "sen5x", "tsl2561"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Web Environment",
+  "Framework :: FastAPI",
+  "Intended Audience :: End Users/Desktop",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Home Automation",
+  "Topic :: Scientific/Engineering :: Atmospheric Science",
+]
+dependencies = [
+  "alembic>=1.13,<2",
+  "fastapi>=0.115,<1",
+  "jinja2>=3.1,<4",
+  "numpy>=1.26,<3",
+  "pydantic>=2.7,<3",
+  "pydantic-settings>=2.3,<3",
+  "PyYAML>=6,<7",
+  "sensirion-i2c-driver>=1.0,<2",
+  "sensirion-i2c-sen5x>=0.1,<1",
+  "smbus2>=0.4.3,<1",
+  "sqlalchemy>=2.0,<3",
+  "uvicorn[standard]>=0.30,<1",
+]
+
+[project.optional-dependencies]
+postgres = ["psycopg[binary]>=3.1,<4"]
+dev = [
+  "httpx>=0.27,<1",
+  "pytest>=8,<10",
+  "pytest-asyncio>=0.23,<2",
+  "ruff>=0.6,<1",
+]
+
+[project.scripts]
+envmon = "envmon.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/fsotosan/environment"
+Repository = "https://github.com/fsotosan/environment"
+Issues = "https://github.com/fsotosan/environment/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/envmon"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/src",
+  "/tests",
+  "/config",
+  "/docs",
+  "/deploy",
+  "/README.md",
+  "/AGENTS.md",
+  "/LICENSE",
+  "/alembic.ini",
+  "/Dockerfile",
+  "/docker-compose.yml",
+  "/docker-compose.hardware.yml",
+]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+pythonpath = ["src"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+filterwarnings = [
+  "error::DeprecationWarning:envmon.*",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+  "E",
+  "F",
+  "I",
+  "UP",
+  "B",
+  "SIM",
+  "C4",
+  "PIE",
+  "RUF",
+]
+ignore = [
+  # Formatter-compatible long lines are handled by E501 below when explicitly enabled.
+  "B008", # FastAPI Depends() in defaults is intentional
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

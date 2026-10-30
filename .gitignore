@@ -218,3 +218,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# envmon runtime data and local configuration
+data/
+backups/
+config/config.yaml
+*.db
+*.db-wal
+*.db-shm
+*.db-journal

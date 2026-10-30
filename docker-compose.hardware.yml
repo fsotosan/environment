@@ -1,0 +1,13 @@
+# Hardware overlay: exposes the Pi's I2C bus to the envmon container.
+#
+#   export I2C_GID=$(stat -c '%g' /dev/i2c-1)
+#   docker compose -f docker-compose.yml -f docker-compose.hardware.yml up -d --build
+#
+# The container user is not root, so the host i2c group GID must be added as a
+# supplementary group. Set ENVMON_I2C_DEVICE if your bus is not /dev/i2c-1.
+services:
+  envmon:
+    devices:
+      - "${ENVMON_I2C_DEVICE:-/dev/i2c-1}:/dev/i2c-1"
+    group_add:
+      - "${I2C_GID:-1000}"

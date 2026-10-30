@@ -1,0 +1,125 @@
+# Environment Monitoring Station configuration.
+#
+# Copy this file to config/config.yaml (or point ENVMON_CONFIG at it) and edit.
+# Every value can be overridden with an environment variable using the
+# ENVMON_ prefix and __ for nesting, e.g.:
+#
+#   ENVMON_SENSORS__MODE=simulator
+#   ENVMON_DATABASE__URL=postgresql+psycopg://envmon:secret@db.local:5432/envmon
+#
+# Precedence: environment > .env > this YAML file > built-in defaults.
+
+station_name: Office
+# Daily aggregation boundaries and timestamps use this timezone.
+timezone: Europe/Madrid
+log_level: INFO
+# log_file: /var/log/envmon/envmon.log
+
+database:
+  # Default: local SQLite with WAL, no server required.
+  url: sqlite:///data/envmon.db
+  # External PostgreSQL/TimescaleDB example:
+  # url: postgresql+psycopg://envmon:change-me@db.local:5432/envmon
+  echo: false
+  busy_timeout_ms: 5000
+
+sampling:
+  enabled: true
+  interval_seconds: 30
+  # Faster retry when all sensors fail (never silently substitutes simulator).
+  failure_retry_seconds: 10
+
+retention:
+  # Raw samples older than this are deleted by the daily maintenance job.
+  raw_days: 730
+  # Daily statistics are kept forever.
+  aggregate_hour: 1
+  backup_enabled: true
+  backup_hour: 3
+  backup_dir: backups
+  backup_keep: 14
+  backup_compress: true
+  vacuum_after_prune: true
+  maintenance_enabled: true
+
+sensors:
+  # "hardware" for the real station, "simulator" for demos and UI work.
+  # Simulated values are clearly marked in the dashboard.
+  mode: hardware
+  i2c_bus: 1
+
+  sen5x:
+    enabled: true
+    address: 0x69
+    # Compensates self-heating / enclosure effects. Verify with a reference
+    # thermometer before changing this.
+    temperature_offset_c: 0.0
+    # 0 disables automatic fan cleaning; 168 = weekly.
+    fan_auto_cleaning_hours: 168
+
+  light:
+    enabled: true
+    address: 0x29
+    gain: 16
+    integration_time_ms: 402
+
+  noise:
+    enabled: true
+    # Grove Base HAT ADC: 0x04 (STM32) or 0x08 (MM32).
+    adc_address: 0x04
+    # A0 = 0, A1 = 1, A2 = 2.
+    adc_channel: 0
+    # Target polling rate. The actual measured rate is stored with each
+    # sample and is usually lower (~1-2 kHz on a 100 kHz I2C bus).
+    sample_rate_hz: 2000
+    duration_seconds: 1.0
+    # Microphone sensitivity. The Grove analog microphone is roughly
+    # 10 mV/Pa; use a sound-level meter to calibrate the offset below.
+    sensitivity_mv_per_pa: 10.0
+    calibration_offset_db: 0.0
+    a_weighting: true
+    highpass_hz: 20.0
+    adc_reference_volts: 3.3
+
+web:
+  host: 0.0.0.0
+  port: 8080
+  title: Environment Station
+  refresh_seconds: 30
+  chart_default_hours: 24
+  chart_max_points: 1500
+  allow_export: true
+  # Set when served behind a reverse proxy under a sub-path, e.g. /envmon.
+  root_path: ""
+
+# These are comfort/attention hints for the dashboard, not alarms.
+thresholds:
+  temperature_c:
+    min: 18.0
+    max: 26.0
+  humidity_pct:
+    min: 30.0
+    max: 70.0
+  pm2_5_ugm3:
+    max: 25.0
+  pm10_ugm3:
+    max: 50.0
+  voc_index:
+    max: 250.0
+  nox_index:
+    max: 250.0
+  lux:
+    min: 200.0
+  noise_db_a:
+    max: 65.0
+
+# Optional external Ollama. Do not run Ollama on the Raspberry Pi itself;
+# point base_url at another machine on your network. Disabled by default.
+llm:
+  enabled: false
+  base_url: http://192.168.1.10:11434
+  model: llama3.1:8b
+  # api_key: optional-bearer-token
+  timeout_seconds: 60
+  temperature: 0.2
+  cache_hours: 6

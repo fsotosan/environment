@@ -1,0 +1,84 @@
+# Optional Docker deployment. Native systemd is the primary path.
+#
+# Simulator / demo:
+#   cp config/config.example.yaml config/config.yaml
+#   docker compose up -d --build
+#
+# Hardware (needs the I2C device and host group):
+#   export I2C_GID=$(stat -c '%g' /dev/i2c-1)
+#   docker compose -f docker-compose.yml -f docker-compose.hardware.yml up -d --build
+#
+# PostgreSQL + Grafana:
+#   export POSTGRES_PASSWORD='change-me'
+#   export ENVMON_DATABASE__URL='postgresql+psycopg://envmon:change-me@postgres:5432/envmon'
+#   docker compose --profile postgres up -d postgres
+#   docker compose up -d --build envmon
+#   docker compose --profile grafana up -d grafana
+name: envmon
+
+services:
+  envmon:
+    build:
+      context: .
+    image: envmon:local
+    restart: unless-stopped
+    ports:
+      - "${ENVMON_PORT:-8080}:8080"
+    environment:
+      ENVMON_CONFIG: /app/config/config.yaml
+      ENVMON_DATABASE__URL: ${ENVMON_DATABASE__URL:-sqlite:////data/envmon.db}
+      ENVMON_SENSORS__MODE: ${ENVMON_SENSORS__MODE:-hardware}
+      ENVMON_WEB__HOST: 0.0.0.0
+      ENVMON_WEB__PORT: "8080"
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ./config:/app/config:ro
+      - envmon-data:/data
+      - envmon-backups:/backups
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/healthz', timeout=3)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  postgres:
+    image: postgres:17-alpine
+    profiles: ["postgres"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: envmon
+      POSTGRES_USER: envmon
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U envmon -d envmon"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  grafana:
+    image: grafana/grafana-oss:11.3.0
+    profiles: ["grafana"]
+    restart: unless-stopped
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    volumes:
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafanadata:/var/lib/grafana
+
+volumes:
+  envmon-data:
+  envmon-backups:
+  pgdata:
+  grafanadata:
